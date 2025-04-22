@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recipe Bot - Find Your Perfect Recipe</title>
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/3448/3448622.png" type="image/png">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="logo-container">
+                <div class="logo-icon"><i class="fas fa-utensils"></i></div>
+                <h1>Recipe Bot</h1>
+            </div>
+            <p class="tagline">Your AI-powered kitchen assistant</p>
+        </header>
+
+        <main class="main-content">
+            <div class="chat-container">
+                <div class="messages" id="messages">
+                    <div class="message bot-message">
+                        <div class="message-avatar">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="message-content">
+                            <p>👨‍🍳 Welcome to Recipe Bot! 👩‍🍳</p>
+                            <p>I can help you find recipes based on ingredients you have or want to use.</p>
+                            <p>You can also specify dietary preferences (vegetarian, vegan, gluten-free, etc.) and ingredients you want to exclude.</p>
+                            <p>For example, try:</p>
+                            <ul>
+                                <li>'Find recipes with chicken and rice'</li>
+                                <li>'I want vegetarian pasta dishes'</li>
+                                <li>'What can I make with potatoes but no meat?'</li>
+                                <li>'Show me gluten-free desserts'</li>
+                            </ul>
+                            <p>Type 'help' for more information or start by telling me what you'd like to cook!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-container">
+                    <input type="text" id="user-input" placeholder="Ask me about recipes..." autofocus>
+                    <button id="send-button" type="button">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="recipe-container" id="recipe-container">
+                <div class="recipe-header">
+                    <h2>Recipe Details</h2>
+                    <button id="close-recipe" class="close-button">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="recipe-content" id="recipe-content">
+                    <div class="recipe-placeholder">
+                        <i class="fas fa-search"></i>
+                        <p>Search for recipes to see details here</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div class="features-section">
+            <div class="feature">
+                <i class="fas fa-carrot"></i>
+                <h3>Ingredient-Based Search</h3>
+                <p>Find recipes based on ingredients you already have</p>
+            </div>
+            <div class="feature">
+                <i class="fas fa-seedling"></i>
+                <h3>Dietary Preferences</h3>
+                <p>Filter by vegetarian, vegan, gluten-free, and more</p>
+            </div>
+            <div class="feature">
+                <i class="fas fa-ban"></i>
+                <h3>Exclude Ingredients</h3>
+                <p>Avoid recipes with ingredients you don't want</p>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>Recipe Bot &copy; 2025 - Powered by AI</p>
+        </footer>
+    </div>
+
+    <!-- Recipe card template for JavaScript to use -->
+    <template id="recipe-template">
+        <div class="recipe-card">
+            <div class="recipe-card-header">
+                <h3 class="recipe-title"></h3>
+                <div class="recipe-meta">
+                    <span class="recipe-time"><i class="far fa-clock"></i> <span class="time-value"></span></span>
+                    <span class="recipe-rating"><i class="far fa-star"></i> <span class="rating-value"></span></span>
+                </div>
+            </div>
+            <div class="recipe-card-body">
+                <div class="recipe-ingredients">
+                    <h4>Ingredients</h4>
+                    <ul class="ingredients-list"></ul>
+                </div>
+                <div class="recipe-instructions">
+                    <h4>Instructions</h4>
+                    <ol class="instructions-list"></ol>
+                </div>
+            </div>
+            <div class="recipe-card-footer">
+                <a href="#" class="recipe-source" target="_blank">View Original Recipe</a>
+            </div>
+        </div>
+    </template>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 

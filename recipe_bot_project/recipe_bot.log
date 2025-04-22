@@ -1,0 +1,6 @@
+2025-04-21 23:33:46,731 - __main__ - INFO - Starting recipe chatbot...
+2025-04-21 23:33:46,732 - data_loader - ERROR - Dataset file not found: data\recipes.json
+2025-04-21 23:33:46,732 - __main__ - ERROR - Failed to load recipe data. Exiting.
+2025-04-21 23:34:05,085 - __main__ - INFO - Starting recipe chatbot...
+2025-04-21 23:34:05,085 - data_loader - ERROR - Dataset file not found: data\recipes_raw_nosource_fn.json
+2025-04-21 23:34:05,086 - __main__ - ERROR - Failed to load recipe data. Exiting.
