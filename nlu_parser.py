@@ -37,13 +37,7 @@ DIETARY_KEYWORDS = {
 }
 
 # Negation terms to detect ingredients to exclude
-NEGATION_TERMS = [
-    'no', 'not', 'without', 'except', 'but no', 'dont', "don't", 'excluding', 'none', 'no more',
-    'avoid', 'free from', 'free of', 'exclude', 'minus', 'leave out', 'skip', 'omit',
-    'cannot have', 'can\'t have', 'allergic to', 'allergy to', 'sensitive to',
-    'intolerant to', 'intolerance', 'anything but', 'rather not', 'instead of',
-    'but not', 'other than', 'remove', 'nothing with', 'nothing containing'
-]
+NEGATION_TERMS = ['no', 'not', 'without', 'except', 'but no', 'dont', "don't", 'excluding', 'none', 'no more']
 
 # Download required NLTK resources (only needs to be done once)
 try:
@@ -107,63 +101,22 @@ INTENT_PATTERNS = {
 # Dictionary of dietary preferences and their related terms
 DIETARY_PREFERENCE_TERMS = {
     'vegetarian': [
-        'vegetarian', 'veggie', 'no meat', 'meat free', 'meatless', 
-        'no beef', 'no chicken', 'no pork', 'no fish', 'vegetable based',
-        'vegetable-based', 'lacto ovo', 'lacto-ovo', 'non-meat',
-        'meat-free', 'no animal flesh'
+        'vegetarian', 'veggie', 'no meat', 'meat free', 'meatless'
     ],
     'vegan': [
-        'vegan', 'plant-based', 'no animal products', 'dairy-free and vegetarian',
-        'plant based', 'animal-free', 'no animal', 'purely plant', 
-        'entirely plant', 'no eggs', 'no dairy', 'no meat', 'no honey',
-        'no animal derivatives', 'plant only', 'no animal ingredients'
+        'vegan', 'plant-based', 'no animal products', 'dairy-free and vegetarian'
     ],
     'gluten-free': [
-        'gluten-free', 'gluten free', 'no gluten', 'without gluten', 'gf',
-        'celiac friendly', 'celiac-friendly', 'no wheat', 'wheat-free',
-        'gluten intolerance', 'gluten sensitivity', 'gluten intolerant',
-        'no flour', 'non-gluten', 'sans gluten', 'gluten-less'
+        'gluten-free', 'gluten free', 'no gluten', 'without gluten', 'gf'
     ],
     'dairy-free': [
-        'dairy-free', 'dairy free', 'no dairy', 'without dairy', 'lactose-free', 
-        'non-dairy', 'no milk', 'milk-free', 'no cheese', 'no butter',
-        'no cream', 'no yogurt', 'lactose intolerant', 'lactose intolerance',
-        'no lactose', 'dairy intolerance', 'dairy allergy'
+        'dairy-free', 'dairy free', 'no dairy', 'without dairy', 'lactose-free', 'non-dairy'
     ],
     'nut-free': [
-        'nut-free', 'nut free', 'no nuts', 'without nuts', 'peanut-free', 
-        'tree nut free', 'almond free', 'cashew free', 'walnut free',
-        'pecan free', 'no peanuts', 'nut allergy', 'no tree nuts',
-        'peanut allergy', 'nut intolerance', 'no nut', 'no almond'
+        'nut-free', 'nut free', 'no nuts', 'without nuts', 'peanut-free', 'tree nut free'
     ],
     'low-carb': [
-        'low-carb', 'low carb', 'keto', 'ketogenic', 'low-carbohydrate', 
-        'carb-free', 'low carbohydrate', 'no carbs', 'minimal carbs',
-        'reduced carb', 'carb restricted', 'low sugar', 'sugar-free',
-        'keto friendly', 'keto-friendly', 'atkins', 'lchf', 'no starch'
-    ],
-    'paleo': [
-        'paleo', 'paleolithic', 'caveman diet', 'stone age diet', 
-        'hunter-gatherer', 'primal', 'grain-free', 'no grains',
-        'no processed food', 'no dairy', 'no legumes', 'ancestral diet'
-    ],
-    'whole30': [
-        'whole30', 'whole 30', 'no sugar', 'no grains', 'no dairy',
-        'no legumes', 'no alcohol', 'no processed foods', 'clean eating',
-        'no additives', 'no sulfites', 'no carrageenan'
-    ],
-    'pescatarian': [
-        'pescatarian', 'pescetarian', 'fish but no meat', 'seafood but no meat',
-        'no meat except fish', 'fish only', 'seafood only', 'fish vegetarian',
-        'fish-eating vegetarian', 'pesco-vegetarian'
-    ],
-    'halal': [
-        'halal', 'no pork', 'halal meat', 'islamically permissible',
-        'halal certified', 'zabiha', 'dhabiha', 'no alcohol'
-    ],
-    'kosher': [
-        'kosher', 'kosher food', 'kashrut', 'no pork', 'no shellfish',
-        'no mixing meat and dairy', 'pareve', 'parve'
+        'low-carb', 'low carb', 'keto', 'ketogenic', 'low-carbohydrate', 'carb-free'
     ]
 }
 
@@ -222,222 +175,25 @@ def find_closest_ingredient(word, canonical_ingredients, threshold=0.8):
     
     # Common ingredients with their canonical forms 
     common_ingredient_map = {
-        # Meats
         'chicken': 'chicken',
-        'chicken breast': 'chicken',
-        'chicken thigh': 'chicken',
-        'chicken leg': 'chicken',
-        'chicken wing': 'chicken',
-        'poultry': 'chicken',
         'beef': 'beef',
-        'ground beef': 'beef',
-        'steak': 'beef',
-        'hamburger': 'beef',
-        'stewing beef': 'beef',
         'pork': 'pork',
-        'ham': 'pork',
-        'bacon': 'pork',
-        'pork chop': 'pork',
-        'sausage': 'sausage',
-        'hotdog': 'sausage',
-        'bratwurst': 'sausage',
-        'kielbasa': 'sausage',
-        'lamb': 'lamb',
-        'mutton': 'lamb',
-        'turkey': 'turkey',
-        'duck': 'duck',
-        
-        # Seafood
-        'fish': 'fish',
-        'salmon': 'salmon',
-        'tuna': 'tuna',
-        'cod': 'cod',
-        'tilapia': 'tilapia',
-        'shrimp': 'shrimp',
-        'prawn': 'shrimp',
-        'crab': 'crab',
-        'lobster': 'lobster',
-        'scallop': 'scallop',
-        'scallops': 'scallop',
-        'mussel': 'mussel',
-        'mussels': 'mussel',
-        'clam': 'clam',
-        'clams': 'clam',
-        'oyster': 'oyster',
-        'oysters': 'oyster',
-        
-        # Grains
         'rice': 'rice',
-        'brown rice': 'rice',
-        'white rice': 'rice',
-        'jasmine rice': 'rice',
-        'basmati rice': 'rice',
-        'arborio rice': 'rice',
         'pasta': 'pasta',
-        'spaghetti': 'pasta',
-        'penne': 'pasta',
-        'linguine': 'pasta',
-        'fettuccine': 'pasta',
-        'macaroni': 'pasta',
         'noodle': 'noodles',
         'noodles': 'noodles',
-        'ramen': 'noodles',
-        'udon': 'noodles',
-        'quinoa': 'quinoa',
-        'couscous': 'couscous',
-        'barley': 'barley',
-        'oats': 'oats',
-        'oatmeal': 'oats',
-        
-        # Vegetables
         'potato': 'potatoes',
         'potatoes': 'potatoes',
-        'spud': 'potatoes',
-        'sweet potato': 'sweet potatoes',
-        'sweet potatoes': 'sweet potatoes',
-        'yam': 'yams',
-        'yams': 'yams',
         'tomato': 'tomatoes',
         'tomatoes': 'tomatoes',
-        'roma': 'tomatoes',
-        'cherry tomato': 'tomatoes',
         'onion': 'onions',
         'onions': 'onions',
-        'scallion': 'scallions',
-        'scallions': 'scallions',
-        'green onion': 'scallions',
-        'green onions': 'scallions',
-        'garlic': 'garlic',
         'carrot': 'carrots',
         'carrots': 'carrots',
-        'celery': 'celery',
-        'bell pepper': 'bell peppers',
-        'bell peppers': 'bell peppers',
-        'capsicum': 'bell peppers',
-        'chili': 'chili peppers',
-        'chili pepper': 'chili peppers',
-        'jalapeno': 'jalapeno',
-        'jalapenos': 'jalapeno',
-        'lettuce': 'lettuce',
-        'romaine': 'lettuce',
-        'spinach': 'spinach',
-        'kale': 'kale',
-        'broccoli': 'broccoli',
-        'cauliflower': 'cauliflower',
-        'corn': 'corn',
-        'maize': 'corn',
-        'zucchini': 'zucchini',
-        'courgette': 'zucchini',
-        'cucumber': 'cucumber',
-        'eggplant': 'eggplant',
-        'aubergine': 'eggplant',
-        
-        # Legumes
         'bean': 'beans',
         'beans': 'beans',
-        'chickpea': 'chickpeas',
-        'chickpeas': 'chickpeas',
-        'garbanzo': 'chickpeas',
-        'lentil': 'lentils',
-        'lentils': 'lentils',
-        'pea': 'peas',
-        'peas': 'peas',
-        
-        # Dairy
-        'milk': 'milk',
-        'cream': 'cream',
-        'half and half': 'cream',
-        'cheese': 'cheese',
-        'cheddar': 'cheddar cheese',
-        'mozzarella': 'mozzarella cheese',
-        'parmesan': 'parmesan cheese',
-        'feta': 'feta cheese',
-        'gouda': 'gouda cheese',
-        'brie': 'brie cheese',
-        'yogurt': 'yogurt',
-        'yoghurt': 'yogurt',
-        'butter': 'butter',
-        
-        # Proteins
         'egg': 'eggs',
-        'eggs': 'eggs',
-        'tofu': 'tofu',
-        'tempeh': 'tempeh',
-        'seitan': 'seitan',
-        
-        # Fruits
-        'apple': 'apples',
-        'apples': 'apples',
-        'banana': 'bananas',
-        'bananas': 'bananas',
-        'orange': 'oranges',
-        'oranges': 'oranges',
-        'lemon': 'lemons',
-        'lemons': 'lemons',
-        'lime': 'limes',
-        'limes': 'limes',
-        'strawberry': 'strawberries',
-        'strawberries': 'strawberries',
-        'blueberry': 'blueberries',
-        'blueberries': 'blueberries',
-        'raspberry': 'raspberries',
-        'raspberries': 'raspberries',
-        'blackberry': 'blackberries',
-        'blackberries': 'blackberries',
-        'grape': 'grapes',
-        'grapes': 'grapes',
-        'watermelon': 'watermelon',
-        'melon': 'melon',
-        'cantaloupe': 'cantaloupe',
-        'honeydew': 'honeydew',
-        'avocado': 'avocados',
-        'avocados': 'avocados',
-        
-        # Herbs and Spices
-        'basil': 'basil',
-        'oregano': 'oregano',
-        'thyme': 'thyme',
-        'rosemary': 'rosemary',
-        'sage': 'sage',
-        'parsley': 'parsley',
-        'cilantro': 'cilantro',
-        'coriander': 'cilantro',
-        'mint': 'mint',
-        'dill': 'dill',
-        'chives': 'chives',
-        'cinnamon': 'cinnamon',
-        'nutmeg': 'nutmeg',
-        'cumin': 'cumin',
-        'paprika': 'paprika',
-        'turmeric': 'turmeric',
-        'pepper': 'black pepper',
-        'black pepper': 'black pepper',
-        'salt': 'salt',
-        'cayenne': 'cayenne pepper',
-        'chili powder': 'chili powder',
-        
-        # Baking
-        'flour': 'flour',
-        'all purpose flour': 'flour',
-        'wheat flour': 'flour',
-        'bread flour': 'bread flour',
-        'cake flour': 'cake flour',
-        'sugar': 'sugar',
-        'granulated sugar': 'sugar',
-        'brown sugar': 'brown sugar',
-        'powdered sugar': 'powdered sugar',
-        'icing sugar': 'powdered sugar',
-        'confectioners sugar': 'powdered sugar',
-        'honey': 'honey',
-        'maple syrup': 'maple syrup',
-        'chocolate': 'chocolate',
-        'cocoa': 'cocoa powder',
-        'cocoa powder': 'cocoa powder',
-        'baking powder': 'baking powder',
-        'baking soda': 'baking soda',
-        'yeast': 'yeast',
-        'vanilla': 'vanilla extract',
-        'vanilla extract': 'vanilla extract'
+        'eggs': 'eggs'
     }
     
     # Direct match for common ingredients
