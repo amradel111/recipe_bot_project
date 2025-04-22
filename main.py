@@ -9,6 +9,7 @@ import pandas as pd
 import argparse
 from time import time
 from pathlib import Path
+import json
 
 # Add the project directory to the path
 # This ensures we can import from sibling modules
@@ -214,8 +215,21 @@ def format_response(response_type, data=None):
         # Format the instructions
         instructions = recipe.get('instructions', [])
         instr_str = "\n📝 Instructions:\n"
-        for i, step in enumerate(instructions, 1):
-            instr_str += f"  {i}. {step}\n"
+        
+        # Check if instructions are a string or a list 
+        if isinstance(instructions, str):
+            # Split the string into meaningful steps by newlines or numbers with periods
+            steps = re.split(r'\n|(?<=\d)\.', instructions)
+            # Filter out empty steps and clean up
+            steps = [step.strip() for step in steps if step.strip()]
+            
+            for i, step in enumerate(steps, 1):
+                instr_str += f"  {i}. {step}\n"
+        else:
+            # Handle list of instructions (original behavior)
+            for i, step in enumerate(instructions, 1):
+                if isinstance(step, str) and len(step) > 1:  # Check if it's a meaningful step
+                    instr_str += f"  {i}. {step}\n"
         
         # Add source information if available
         source = recipe.get('source', None)
@@ -360,6 +374,87 @@ def process_user_input(user_input, recipes_df, canonical_ingredients, session_co
             
             # Log search results
             logger.info(f"Recipe search returned {len(matching_df) if not matching_df.empty else 0} results")
+            
+            # Additional filtering when user specifically asks for multiple ingredients with "and"
+            if include_ingredients and len(include_ingredients) > 1 and 'and' in user_input.lower():
+                logger.info("User specified 'and' in query, applying stricter filtering")
+                
+                # Only keep recipes that have ALL of the requested ingredients
+                # We'll check the match_count to make sure it matches the number of requested ingredients
+                user_ing_count = len(set(include_ingredients))
+                
+                # Apply strict filtering (allow for 10% tolerance)
+                if not matching_df.empty and 'match_count' in matching_df.columns:
+                    strict_matches = matching_df[matching_df['match_count'] >= user_ing_count * 0.9]
+                    
+                    # If we have strict matches, use only those
+                    if not strict_matches.empty:
+                        logger.info(f"Found {len(strict_matches)} recipes with ALL requested ingredients")
+                        matching_df = strict_matches
+            
+            # If no results, try fallback strategies
+            if matching_df.empty:
+                logger.info("No matching recipes found, trying fallback strategies")
+                
+                # First fallback: If we have a special category, try without ingredient filtering
+                if recipe_category and include_ingredients:
+                    logger.info(f"Fallback: Trying with just category '{recipe_category}' without ingredient filtering")
+                    fallback_df = find_matching_recipes(
+                        include_ingredients=[],
+                        exclude_ingredients=exclude_ingredients,  # Keep exclusions
+                        dietary_preferences=dietary_preferences,  # Keep dietary preferences
+                        df_recipes=recipes_df,
+                        config=config,
+                        limit=10,
+                        recipe_category=recipe_category
+                    )
+                    
+                    if not fallback_df.empty:
+                        logger.info(f"Fallback successful: Found {len(fallback_df)} recipes with category only")
+                        matching_df = fallback_df
+                
+                # Second fallback: For "without X" queries, try with just exclusions
+                elif exclude_ingredients and not include_ingredients:
+                    logger.info("Fallback: Trying with just ingredient exclusions")
+                    # Try loosening the exclusion matching by using only the first excluded ingredient
+                    if len(exclude_ingredients) > 1:
+                        primary_exclusion = [exclude_ingredients[0]]
+                        logger.info(f"Using primary exclusion: {primary_exclusion}")
+                        
+                        fallback_df = find_matching_recipes(
+                            include_ingredients=[],
+                            exclude_ingredients=primary_exclusion,
+                            dietary_preferences=dietary_preferences,
+                            df_recipes=recipes_df,
+                            config=config,
+                            limit=10,
+                            recipe_category=None  # Drop category to find more recipes
+                        )
+                        
+                        if not fallback_df.empty:
+                            logger.info(f"Fallback successful: Found {len(fallback_df)} recipes with primary exclusion")
+                            matching_df = fallback_df
+                
+                # Third fallback: If we have ingredients but no category, drop the least important ingredient
+                elif include_ingredients and len(include_ingredients) > 1:
+                    logger.info("Fallback: Trying with fewer ingredients")
+                    # Remove the last ingredient (assumed to be least important)
+                    reduced_ingredients = include_ingredients[:-1]
+                    logger.info(f"Using reduced ingredients: {reduced_ingredients}")
+                    
+                    fallback_df = find_matching_recipes(
+                        include_ingredients=reduced_ingredients,
+                        exclude_ingredients=exclude_ingredients,
+                        dietary_preferences=dietary_preferences,
+                        df_recipes=recipes_df,
+                        config=config,
+                        limit=10,
+                        recipe_category=recipe_category
+                    )
+                    
+                    if not fallback_df.empty:
+                        logger.info(f"Fallback successful: Found {len(fallback_df)} recipes with reduced ingredients")
+                        matching_df = fallback_df
             
             # Store recipe IDs (prefer 'id' column if available)
             if not matching_df.empty and 'id' in matching_df.columns:

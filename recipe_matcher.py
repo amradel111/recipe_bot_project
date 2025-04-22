@@ -89,35 +89,46 @@ def calculate_match_score(user_ingredients, recipe_ingredients, exclude_ingredie
     user_ingredients = [str(ing).lower() for ing in user_ingredients if ing]
     recipe_ingredients_lower = [str(ing).lower() for ing in recipe_ingredients if ing]
     
-    # Convert lists to sets for faster intersection
-    user_set = set(user_ingredients)
-    recipe_set = set(recipe_ingredients_lower)
+    # Create a single string of all recipe ingredients for better substring matching
+    recipe_text = " ".join(recipe_ingredients_lower)
     
-    # Find common ingredients using fuzzy matching
+    # Find common ingredients
     common_ingredients = []
-    for user_ing in user_set:
-        best_match = None
-        best_score = 0
+    for user_ing in user_ingredients:
+        found = False
         
-        # Try exact match first
-        for recipe_ing in recipe_set:
-            if user_ing in recipe_ing or recipe_ing in user_ing:
-                common_ingredients.append(recipe_ing)
-                best_match = recipe_ing
-                break
+        # Check exact matches first (1. exact match, 2. substring in recipe)
+        if user_ing in recipe_ingredients_lower:
+            common_ingredients.append(user_ing)
+            found = True
+        # Check if ingredient is mentioned in any recipe ingredient
+        elif user_ing in recipe_text:
+            common_ingredients.append(user_ing)
+            found = True
+        # Fallback to checking each recipe ingredient for substring match
+        else:
+            for recipe_ing in recipe_ingredients_lower:
+                # Check if user ingredient is contained within recipe ingredient
+                if user_ing in recipe_ing:
+                    common_ingredients.append(recipe_ing)
+                    found = True
+                    break
+                # For shorter ingredients, check if recipe ingredient contains them
+                elif len(user_ing) <= 4 and user_ing in recipe_ing:
+                    common_ingredients.append(recipe_ing)
+                    found = True
+                    break
         
-        # If no exact match, try fuzzy matching
-        if not best_match:
-            for recipe_ing in recipe_set:
-                # Check if ingredients are similar using fuzzy matching
-                # First, see if it's a substring (more reliable)
-                if user_ing in recipe_ing or recipe_ing in user_ing:
-                    similarity = 90  # High score for substring match
-                else:
-                    # Fallback to ratio for more fuzzy matches
-                    similarity = fuzz.ratio(user_ing, recipe_ing)
+        # If still not found, try fuzzy matching as last resort
+        if not found:
+            best_match = None
+            best_score = 0
+            
+            for recipe_ing in recipe_ingredients_lower:
+                # Try fuzzy ratio for more complex matches
+                similarity = fuzz.ratio(user_ing, recipe_ing)
                 
-                if similarity > 80 and similarity > best_score:  # 80% threshold for match - less strict
+                if similarity > 85 and similarity > best_score:  # Stricter threshold (85% vs 80%)
                     best_match = recipe_ing
                     best_score = similarity
             
@@ -126,36 +137,37 @@ def calculate_match_score(user_ingredients, recipe_ingredients, exclude_ingredie
     
     # Calculate basic metrics
     match_count = len(common_ingredients)
-    match_ratio = match_count / len(user_set) if user_set else 0
-    coverage_ratio = match_count / len(recipe_set) if recipe_set else 0
+    match_ratio = match_count / len(user_ingredients) if user_ingredients else 0
+    coverage_ratio = match_count / len(recipe_ingredients_lower) if recipe_ingredients_lower else 0
     
     # Calculate a weighted score (prioritize match_ratio over coverage)
-    score = (0.7 * match_ratio) + (0.3 * coverage_ratio)
+    # Increase the weight on match_ratio to prioritize recipes with all requested ingredients
+    score = (0.8 * match_ratio) + (0.2 * coverage_ratio)
     
     # Apply penalty for excluded ingredients if provided
-    if exclude_ingredients and recipe_set:
-        exclude_set = set([str(ing).lower() for ing in exclude_ingredients if ing])
-        
-        # Check for excluded ingredients using fuzzy matching
+    if exclude_ingredients and recipe_ingredients_lower:
         excluded_found = []
-        for exclude_ing in exclude_set:
-            for recipe_ing in recipe_set:
-                # First check for substring match (more reliable)
+        
+        for exclude_ing in exclude_ingredients:
+            exclude_ing = exclude_ing.lower()
+            
+            # Check if excluded ingredient appears in recipe text
+            if exclude_ing in recipe_text:
+                excluded_found.append(exclude_ing)
+                continue
+            
+            # Check against each recipe ingredient
+            for recipe_ing in recipe_ingredients_lower:
+                # Check for substring match
                 if exclude_ing in recipe_ing or recipe_ing in exclude_ing:
                     excluded_found.append(recipe_ing)
                     break
-                    
-                # Check if the excluded ingredient appears in the recipe
-                similarity = fuzz.partial_ratio(exclude_ing, recipe_ing)
-                if similarity > 80:  # 80% threshold for considering it a match - less strict
-                    excluded_found.append(recipe_ing)
-                    break
         
-        # Apply penalty based on number of excluded ingredients found
+        # Apply stricter penalty for excluded ingredients
         excluded_count = len(excluded_found)
         if excluded_count > 0:
             # Significant penalty for each excluded ingredient
-            exclusion_penalty = min(1.0, 0.5 * excluded_count)
+            exclusion_penalty = min(1.0, 0.7 * excluded_count)  # Increased from 0.5 to 0.7
             score = max(0, score - exclusion_penalty)
     
     return {
@@ -349,65 +361,168 @@ def find_matching_recipes(include_ingredients, exclude_ingredients, dietary_pref
     if recipe_category:
         logger.info(f"Filtering by category: {recipe_category}")
         
-        # First, try to find a dedicated category column
-        category_col = None
-        potential_category_cols = ['category', 'categories', 'type', 'dish_type', 'meal_type', 'recipe_type']
-        for col in potential_category_cols:
-            if col in df_with_scores.columns:
-                category_col = col
+        # Handle special categories and qualifiers
+        special_categories = {
+            'quick': ['quick', 'fast', 'rapid', 'ready in', 'minutes', '30 min', '15 min'],
+            'easy': ['easy', 'simple', 'basic', 'beginner', 'effortless'],
+            'fancy': ['fancy', 'gourmet', 'elegant', 'sophisticated', 'impressive', 'special'],
+            'party': ['party', 'gathering', 'entertaining', 'celebrate', 'celebration', 'guests'],
+            'dinner party': ['dinner party', 'entertaining', 'guests', 'gathering', 'formal dinner'],
+            'spicy': ['spicy', 'spice', 'hot', 'chili', 'pepper', 'jalapeño', 'cayenne'],
+            'bbq': ['bbq', 'barbecue', 'grill', 'grilled', 'cookout', 'outdoor cooking'],
+            'healthy': ['healthy', 'nutritious', 'light', 'low-fat', 'low-calorie', 'fitness', 'diet']
+        }
+        
+        # Check if we're dealing with a special category
+        special_category = None
+        for special, terms in special_categories.items():
+            if recipe_category == special or recipe_category.startswith(f"{special} "):
+                special_category = special
+                logger.info(f"Identified special category: {special_category}")
                 break
         
-        # If we have a dedicated category column, use it
-        if category_col:
-            logger.info(f"Using {category_col} column for category filtering")
-            # Convert to lowercase for case-insensitive comparison
-            df_with_scores = df_with_scores[df_with_scores[category_col].str.lower().str.contains(recipe_category.lower(), na=False)]
-        else:
-            # Otherwise, search in multiple columns and in the recipe name
-            logger.info("No specific category column found, searching across multiple fields")
+        # Create appropriate search terms based on the special category
+        if special_category:
+            # Get search terms for the special category
+            search_terms = special_categories[special_category]
             
-            # Start with recipe name
-            category_mask = df_with_scores[name_col].str.lower().str.contains(recipe_category.lower(), na=False)
-            
-            # Also search in tags if available
-            if 'tags' in df_with_scores.columns:
-                try:
-                    if df_with_scores['tags'].dtype == 'object':
-                        tags_mask = df_with_scores['tags'].apply(
-                            lambda x: any(recipe_category.lower() in tag.lower() for tag in x) if isinstance(x, list) else False
-                        )
-                        category_mask = category_mask | tags_mask
-                except Exception as e:
-                    logger.warning(f"Error searching in tags column: {e}")
-            
-            # Search in keywords if available
-            if 'keywords' in df_with_scores.columns:
-                try:
-                    keywords_mask = df_with_scores['keywords'].str.lower().str.contains(recipe_category.lower(), na=False)
-                    category_mask = category_mask | keywords_mask
-                except Exception as e:
-                    logger.warning(f"Error searching in keywords column: {e}")
-            
-            # Search in description if available
-            if 'description' in df_with_scores.columns:
-                try:
-                    desc_mask = df_with_scores['description'].str.lower().str.contains(recipe_category.lower(), na=False)
-                    category_mask = category_mask | desc_mask
-                except Exception as e:
-                    logger.warning(f"Error searching in description column: {e}")
+            # If there's a combined category (e.g., "quick breakfast"), add the second part
+            if ' ' in recipe_category:
+                primary_category = recipe_category.split(' ', 1)[1]
+                logger.info(f"Combined category with primary: {primary_category}")
+                
+                # Create a separate mask for the primary category
+                primary_mask = None
+                
+                # First, try to find a dedicated category column
+                category_col = None
+                potential_category_cols = ['category', 'categories', 'type', 'dish_type', 'meal_type', 'recipe_type']
+                for col in potential_category_cols:
+                    if col in df_with_scores.columns:
+                        category_col = col
+                        break
+                
+                # Apply primary category filter
+                if category_col:
+                    primary_mask = df_with_scores[category_col].str.lower().str.contains(primary_category.lower(), na=False)
+                else:
+                    # Search in recipe name
+                    primary_mask = df_with_scores[name_col].str.lower().str.contains(primary_category.lower(), na=False)
                     
-            # Search in instruction text if available (some recipes mention the meal type there)
-            if config.INSTRUCTIONS_COLUMN in df_with_scores.columns:
-                try:
-                    instr_mask = df_with_scores[config.INSTRUCTIONS_COLUMN].str.lower().str.contains(recipe_category.lower(), na=False)
-                    category_mask = category_mask | instr_mask
-                except Exception as e:
-                    logger.warning(f"Error searching in instructions column: {e}")
+                    # Search in instruction text and other fields
+                    if config.INSTRUCTIONS_COLUMN in df_with_scores.columns:
+                        instr_mask = df_with_scores[config.INSTRUCTIONS_COLUMN].str.lower().str.contains(primary_category.lower(), na=False)
+                        primary_mask = primary_mask | instr_mask
             
-            # Apply the combined mask
-            df_with_scores = df_with_scores[category_mask]
+            # Initialize mask for special category
+            special_mask = pd.Series(False, index=df_with_scores.index)
             
-            logger.info(f"After category filtering, found {len(df_with_scores)} recipes")
+            # Apply masks for each search term in special category
+            for term in search_terms:
+                term_mask = False
+                
+                # Check in recipe name
+                name_contains = df_with_scores[name_col].str.lower().str.contains(term, na=False)
+                term_mask = term_mask | name_contains
+                
+                # Check in instructions
+                if config.INSTRUCTIONS_COLUMN in df_with_scores.columns:
+                    instr_contains = df_with_scores[config.INSTRUCTIONS_COLUMN].str.lower().str.contains(term, na=False)
+                    term_mask = term_mask | instr_contains
+                
+                # Check in description if available
+                if 'description' in df_with_scores.columns:
+                    desc_contains = df_with_scores['description'].str.lower().str.contains(term, na=False)
+                    term_mask = term_mask | desc_contains
+                
+                # Check in other potential columns
+                for col in ['tags', 'keywords', 'notes']:
+                    if col in df_with_scores.columns:
+                        try:
+                            if df_with_scores[col].dtype == 'object':
+                                if isinstance(df_with_scores[col].iloc[0], list):
+                                    # Handle list type columns
+                                    col_contains = df_with_scores[col].apply(
+                                        lambda x: any(term.lower() in str(tag).lower() for tag in x) if isinstance(x, list) else False
+                                    )
+                                else:
+                                    # Handle string type columns
+                                    col_contains = df_with_scores[col].str.lower().str.contains(term, na=False)
+                                term_mask = term_mask | col_contains
+                        except Exception as e:
+                            logger.warning(f"Error searching in {col} column: {e}")
+                
+                # Add this term's mask to the special category mask
+                special_mask = special_mask | term_mask
+            
+            # Combine masks if we have a primary category too
+            if ' ' in recipe_category and primary_mask is not None:
+                special_mask = special_mask & primary_mask
+            
+            # Apply the special category mask
+            df_with_scores = df_with_scores[special_mask]
+            logger.info(f"After special category filtering, found {len(df_with_scores)} recipes")
+            
+        else:
+            # First, try to find a dedicated category column
+            category_col = None
+            potential_category_cols = ['category', 'categories', 'type', 'dish_type', 'meal_type', 'recipe_type']
+            for col in potential_category_cols:
+                if col in df_with_scores.columns:
+                    category_col = col
+                    break
+            
+            # If we have a dedicated category column, use it
+            if category_col:
+                logger.info(f"Using {category_col} column for category filtering")
+                # Convert to lowercase for case-insensitive comparison
+                df_with_scores = df_with_scores[df_with_scores[category_col].str.lower().str.contains(recipe_category.lower(), na=False)]
+            else:
+                # Otherwise, search in multiple columns and in the recipe name
+                logger.info("No specific category column found, searching across multiple fields")
+                
+                # Start with recipe name
+                category_mask = df_with_scores[name_col].str.lower().str.contains(recipe_category.lower(), na=False)
+                
+                # Also search in tags if available
+                if 'tags' in df_with_scores.columns:
+                    try:
+                        if df_with_scores['tags'].dtype == 'object':
+                            tags_mask = df_with_scores['tags'].apply(
+                                lambda x: any(recipe_category.lower() in tag.lower() for tag in x) if isinstance(x, list) else False
+                            )
+                            category_mask = category_mask | tags_mask
+                    except Exception as e:
+                        logger.warning(f"Error searching in tags column: {e}")
+                
+                # Search in keywords if available
+                if 'keywords' in df_with_scores.columns:
+                    try:
+                        keywords_mask = df_with_scores['keywords'].str.lower().str.contains(recipe_category.lower(), na=False)
+                        category_mask = category_mask | keywords_mask
+                    except Exception as e:
+                        logger.warning(f"Error searching in keywords column: {e}")
+                
+                # Search in description if available
+                if 'description' in df_with_scores.columns:
+                    try:
+                        desc_mask = df_with_scores['description'].str.lower().str.contains(recipe_category.lower(), na=False)
+                        category_mask = category_mask | desc_mask
+                    except Exception as e:
+                        logger.warning(f"Error searching in description column: {e}")
+                        
+                # Search in instruction text if available (some recipes mention the meal type there)
+                if config.INSTRUCTIONS_COLUMN in df_with_scores.columns:
+                    try:
+                        instr_mask = df_with_scores[config.INSTRUCTIONS_COLUMN].str.lower().str.contains(recipe_category.lower(), na=False)
+                        category_mask = category_mask | instr_mask
+                    except Exception as e:
+                        logger.warning(f"Error searching in instructions column: {e}")
+                
+                # Apply the combined mask
+                df_with_scores = df_with_scores[category_mask]
+                
+                logger.info(f"After category filtering, found {len(df_with_scores)} recipes")
     
     # If no recipes left after category filtering, return empty DataFrame
     if df_with_scores.empty:
@@ -479,7 +594,28 @@ def find_matching_recipes(include_ingredients, exclude_ingredients, dietary_pref
     if df_with_scores.empty:
         logger.info("No recipes found after all filtering")
         return pd.DataFrame()
+    
+    # Extra filtering to ensure ALL requested ingredients are present
+    if include_ingredients and len(include_ingredients) > 1:
+        logger.info("Filtering to ensure all requested ingredients are included")
         
+        # Check match count against requested ingredient count
+        user_ing_count = len(set(include_ingredients))
+        
+        # Only keep recipes that contain all requested ingredients
+        # We use match_count >= user_ing_count * 0.9 to allow for some flexibility in matching
+        df_with_scores = df_with_scores[df_with_scores['match_count'] >= user_ing_count * 0.9]
+        
+        # Log the count of recipes after ingredient filtering
+        logger.info(f"After ensuring all ingredients present: {len(df_with_scores)} recipes")
+        
+        # If no recipes after strict filtering, fall back to the original list but mark it
+        if df_with_scores.empty:
+            logger.info("No recipes with ALL ingredients, falling back to partial matches")
+            # We can return to the original approach in this case
+            df_with_scores = df_recipes.copy()
+            df_with_scores = df_with_scores.sort_values('match_score', ascending=False)
+    
     # Sort by match score in descending order
     df_with_scores = df_with_scores.sort_values('match_score', ascending=False)
     
