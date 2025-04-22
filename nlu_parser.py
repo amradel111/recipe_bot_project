@@ -915,6 +915,54 @@ def extract_recipe_category(query):
         'bean', 'beans', 'potato', 'potatoes'
     ]
     
+    # Handle "recipes without X" queries - these should be treated as exclusion queries, not category
+    exclusion_phrases = ['without', 'no', 'not containing', 'excluding']
+    for phrase in exclusion_phrases:
+        if phrase in query_lower:
+            # This is an exclusion query, not a category query
+            return None
+    
+    # Handle special categories and qualifiers
+    special_categories = {
+        'quick': 'quick',
+        'fast': 'quick',
+        'easy': 'easy',
+        'simple': 'easy', 
+        'fancy': 'fancy',
+        'elegant': 'fancy',
+        'gourmet': 'fancy',
+        'party': 'party',
+        'celebration': 'party',
+        'holiday': 'holiday',
+        'spicy': 'spicy',
+        'hot': 'spicy',
+        'dinner party': 'dinner party',
+        'picnic': 'picnic',
+        'bbq': 'bbq',
+        'barbecue': 'bbq',
+        'grilled': 'grilled',
+        'baked': 'baked',
+        'roasted': 'roasted',
+        'fried': 'fried',
+        'healthy': 'healthy',
+        'light': 'healthy'
+    }
+    
+    # Check for special modifiers
+    for special, category in special_categories.items():
+        if re.search(r'\b' + re.escape(special) + r'\b', query_lower):
+            logger.debug(f"Found special category modifier: '{special}' -> '{category}'")
+            
+            # Look for associated primary category (like "quick breakfast")
+            for primary in ['breakfast', 'lunch', 'dinner', 'dessert', 'soup', 'salad', 'appetizer']:
+                if primary in query_lower:
+                    combined = f"{category} {primary}"
+                    logger.debug(f"Detected combined category: '{combined}'")
+                    return combined
+            
+            # If no primary category, return special as the category
+            return category
+    
     # Check for explicit ingredient phrases
     ingredient_phrases = [
         'recipe with', 'recipes with', 'using', 'made with', 'that has', 'that have',
@@ -945,7 +993,8 @@ def extract_recipe_category(query):
         'bread': ['bread', 'breads', 'roll', 'rolls', 'bun', 'buns'],
         'drink': ['drink', 'drinks', 'beverage', 'beverages', 'cocktail', 'cocktails', 'smoothie', 'smoothies', 'juice', 'juices'],
         'seafood': ['seafood', 'fish', 'shrimp', 'crab', 'lobster', 'scallop', 'scallops', 'oyster', 'oysters'],
-        'meat': ['meat', 'beef', 'pork', 'lamb', 'chicken', 'turkey', 'duck', 'goose']
+        'meat': ['meat', 'beef', 'pork', 'lamb', 'chicken', 'turkey', 'duck', 'goose'],
+        'pasta': ['pasta', 'noodle', 'spaghetti', 'lasagna', 'macaroni']
     }
     
     # Check for each category
@@ -999,7 +1048,13 @@ def extract_common_ingredients(query):
         'onion', 'onions', 'garlic', 'carrot', 'carrots', 'broccoli', 'spinach',
         'beans', 'lentils', 'cheese', 'milk', 'cream', 'yogurt', 'egg', 'eggs',
         'bread', 'flour', 'sugar', 'salt', 'pepper', 'oil', 'butter',
-        'chocolate', 'vanilla', 'cinnamon', 'apple', 'banana', 'orange', 'lemon'
+        'chocolate', 'vanilla', 'cinnamon', 'apple', 'banana', 'orange', 'lemon',
+        'nuts', 'peanut', 'walnut', 'almond', 'cashew', 'spicy', 'spice', 'hot'
+    ]
+    
+    # Categories that should be treated as ingredients in some contexts
+    category_as_ingredients = [
+        'nuts', 'seafood', 'meat', 'spicy', 'dairy'
     ]
     
     # Standardize ingredients (singular forms)
@@ -1009,7 +1064,17 @@ def extract_common_ingredients(query):
         'onions': 'onion',
         'carrots': 'carrot',
         'eggs': 'egg',
-        'noodles': 'noodle'
+        'noodles': 'noodle',
+        'nuts': 'nut'
+    }
+    
+    # Define groups of related ingredients for exclusion queries
+    ingredient_groups = {
+        'nut': ['nut', 'nuts', 'peanut', 'walnut', 'almond', 'cashew', 'pecan', 'hazelnut', 'pistachio'],
+        'spicy': ['spicy', 'spice', 'hot', 'chili', 'pepper', 'jalapeño', 'cayenne'],
+        'meat': ['meat', 'beef', 'pork', 'lamb', 'chicken', 'turkey', 'duck', 'bacon', 'sausage'],
+        'dairy': ['dairy', 'milk', 'cheese', 'cream', 'yogurt', 'butter'],
+        'seafood': ['seafood', 'fish', 'salmon', 'tuna', 'shrimp', 'crab', 'lobster', 'squid', 'clam', 'mussel']
     }
     
     # Define exclusion phrase patterns
@@ -1031,11 +1096,30 @@ def extract_common_ingredients(query):
             if word in singular_mapping:
                 word = singular_mapping[word]
             
-            if word in common_ingredients and word not in exclude_ingredients:
+            # Check if we need to expand to a group
+            for group_name, group_items in ingredient_groups.items():
+                if word in group_items:
+                    for group_item in group_items:
+                        if group_item not in exclude_ingredients:
+                            exclude_ingredients.append(group_item)
+                    break
+            # If not part of a group, just add the word if it's a common ingredient
+            if word in common_ingredients and word not in ingredient_groups.get(word, []):
                 exclude_ingredients.append(word)
     
     # Find included ingredients 
     include_ingredients = []
+    
+    # Check for special negation-only queries where the category becomes ingredients to exclude
+    exclusion_keywords = ['without', 'no', 'not', "don't", 'exclude']
+    if any(keyword in query_lower for keyword in exclusion_keywords):
+        for category in category_as_ingredients:
+            if category in query_lower and category not in exclude_ingredients:
+                # If the category is mentioned in an exclusion context, add it and its group to exclude
+                if category in ingredient_groups:
+                    for group_item in ingredient_groups[category]:
+                        if group_item not in exclude_ingredients:
+                            exclude_ingredients.append(group_item)
     
     # Common inclusion phrases
     inclusion_phrases = [
@@ -1073,12 +1157,29 @@ def extract_common_ingredients(query):
                     include_ingredients.append(ingredient)
     
     # Check for full negation of the query
-    for phrase in ['without', 'no', 'not']:
-        if query_lower.startswith(phrase) and include_ingredients:
-            # Move all includes to excludes if the query is a pure negation
-            exclude_ingredients.extend([ing for ing in include_ingredients if ing not in exclude_ingredients])
-            include_ingredients = []
-            break
+    for phrase in ['without', 'no', 'not', "don't want", "don't like"]:
+        if phrase in query_lower and include_ingredients:
+            # If the query is purely about exclusion, move all includes to excludes
+            if len(include_ingredients) <= 1 and any(ex_kw in query_lower for ex_kw in ['without', 'no', 'not', "don't"]):
+                exclude_ingredients.extend([ing for ing in include_ingredients if ing not in exclude_ingredients])
+                include_ingredients = []
+                break
+    
+    # Special case for "recipes without X" queries
+    if query_lower.startswith('find recipes without') or query_lower.startswith('recipes without') or 'recipe without' in query_lower:
+        # Make sure we don't have any includes for pure exclusion queries
+        include_ingredients = []
+        
+        # Ensure we have at least some excluded ingredients
+        if not exclude_ingredients:
+            # Try to find common categories that might be treated as ingredients
+            for category in ['nuts', 'meat', 'dairy', 'seafood', 'spicy']:
+                if category in query_lower and category not in exclude_ingredients:
+                    if category in ingredient_groups:
+                        # Add all items from the ingredient group
+                        for group_item in ingredient_groups[category]:
+                            if group_item not in exclude_ingredients:
+                                exclude_ingredients.append(group_item)
     
     return include_ingredients, exclude_ingredients
 
