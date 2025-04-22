@@ -11,7 +11,7 @@ from pathlib import Path
 DATASET_PATH = 'D:/chatbot-project/recipe_bot_project/data/recipes_raw_nosource_epi.json'
 
 # Limit the number of recipes to load (set to None for all recipes)
-LIMIT_RECIPES = 5000
+LIMIT_RECIPES = None
 
 # ----- DATA PROCESSING CONFIGURATION -----
 
