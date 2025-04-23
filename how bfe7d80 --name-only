@@ -1,0 +1,8 @@
+[33mbfe7d80[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m Improve UI/UX with enhanced styling and typing indicator
+[33m669b8f5[m Enhance NLP capabilities with expanded ingredient synonyms and improved negation detection
+[33mc2f46d0[m Update config to use full dataset of 25,323 recipes
+[33m465153c[m Stop tracking ignored files
+[33m6185f10[m Add .gitignore file to exclude cache and logs
+[33m44671f0[m Update main.py and recipe_matcher.py
+[33m01fcea8[m Fix redundant condition check in ingredient exclusion logic
+[33mc411657[m Initial commit with web interface, startup scripts, and core functionality

@@ -49,9 +49,6 @@ function sendMessage() {
     // Clear input
     userInput.value = '';
     
-    // Show typing indicator
-    showTypingIndicator();
-    
     // Send message to the server
     fetch('/chat', {
         method: 'POST',
@@ -65,9 +62,6 @@ function sendMessage() {
     })
     .then(response => response.json())
     .then(data => {
-        // Remove typing indicator
-        hideTypingIndicator();
-        
         // Add bot response to the chat
         addMessageToChat(data.response, 'bot');
         
@@ -78,36 +72,9 @@ function sendMessage() {
         checkForRecipeNumbers(data.response);
     })
     .catch((error) => {
-        // Remove typing indicator
-        hideTypingIndicator();
-        
         console.error('Error:', error);
         addMessageToChat('Sorry, I encountered an error. Please try again.', 'bot');
     });
-}
-
-function showTypingIndicator() {
-    const typingDiv = document.createElement('div');
-    typingDiv.classList.add('typing-indicator');
-    typingDiv.id = 'typing-indicator';
-    
-    // Create the three dots
-    for (let i = 0; i < 3; i++) {
-        const dot = document.createElement('span');
-        typingDiv.appendChild(dot);
-    }
-    
-    messagesContainer.appendChild(typingDiv);
-    
-    // Scroll to the bottom
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-function hideTypingIndicator() {
-    const typingIndicator = document.getElementById('typing-indicator');
-    if (typingIndicator) {
-        typingIndicator.remove();
-    }
 }
 
 function addMessageToChat(message, sender) {
@@ -127,128 +94,29 @@ function addMessageToChat(message, sender) {
     
     // Process message content
     if (typeof message === 'string') {
-        // Handle recipe lists differently
-        if (message.includes('Found') && message.includes('recipes:')) {
-            // Split message into parts
-            const parts = message.split(/(?=^\d+\.)/m);
-            
-            // Add the header text
-            if (parts.length > 0 && !parts[0].match(/^\d+\./)) {
-                const header = document.createElement('p');
-                header.textContent = parts[0].trim();
-                content.appendChild(header);
-                parts.shift(); // Remove the header from parts
-            }
-            
-            // Create a list for the recipes
-            const recipeList = document.createElement('ol');
-            recipeList.classList.add('recipe-list');
-            
-            // Add each recipe as a list item
-            parts.forEach(part => {
-                if (part.trim() !== '') {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = part.trim().replace(/^\d+\./, '').trim();
-                    
-                    // Extract recipe index
-                    const match = part.match(/^(\d+)\./);
-                    if (match) {
-                        const recipeIndex = parseInt(match[1]) - 1;
-                        listItem.style.cursor = 'pointer';
-                        listItem.style.color = 'var(--primary-color)';
-                        listItem.addEventListener('click', () => {
-                            fetchRecipeDetails(recipeIndex);
-                        });
-                    }
-                    
-                    recipeList.appendChild(listItem);
-                }
-            });
-            
-            content.appendChild(recipeList);
-        } else {
-            // Process normal message with enhanced formatting
-            const processedMessage = message
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold text
-                .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic text
-                .replace(/`(.*?)`/g, '<code>$1</code>'); // Code
-            
-            // Split by newlines and create paragraph for each
-            const lines = processedMessage.split('\n');
-            
-            let inList = false;
-            let listElem = null;
-            
-            lines.forEach((line) => {
-                const trimmed = line.trim();
+        // Split by newlines and create paragraph for each
+        const lines = message.split('\n');
+        lines.forEach((line) => {
+            if (line.trim() !== '') {
+                const paragraph = document.createElement('p');
                 
-                if (trimmed === '') {
-                    // Empty line
-                    if (inList) {
-                        content.appendChild(listElem);
-                        inList = false;
-                        listElem = null;
-                    }
-                    return;
+                // Check if line is a list item
+                if (line.trim().startsWith('•') || line.trim().startsWith('-')) {
+                    paragraph.innerHTML = line;
+                } else if (line.trim().match(/^\d+\./)) { // Numbered list
+                    paragraph.innerHTML = line;
+                } else {
+                    paragraph.textContent = line;
                 }
                 
-                // Check if line is a bullet list item
-                if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
-                    if (!inList || listElem.tagName !== 'UL') {
-                        if (inList) {
-                            content.appendChild(listElem);
-                        }
-                        listElem = document.createElement('ul');
-                        inList = true;
-                    }
-                    
-                    const listItem = document.createElement('li');
-                    listItem.innerHTML = trimmed.replace(/^[•-]\s*/, '');
-                    listElem.appendChild(listItem);
-                }
-                // Check if line is a numbered list item
-                else if (trimmed.match(/^\d+\./)) {
-                    if (!inList || listElem.tagName !== 'OL') {
-                        if (inList) {
-                            content.appendChild(listElem);
-                        }
-                        listElem = document.createElement('ol');
-                        inList = true;
-                    }
-                    
-                    const listItem = document.createElement('li');
-                    listItem.innerHTML = trimmed.replace(/^\d+\.\s*/, '');
-                    listElem.appendChild(listItem);
-                }
-                // Normal paragraph
-                else {
-                    if (inList) {
-                        content.appendChild(listElem);
-                        inList = false;
-                        listElem = null;
-                    }
-                    
-                    const paragraph = document.createElement('p');
-                    paragraph.innerHTML = trimmed;
-                    content.appendChild(paragraph);
-                }
-            });
-            
-            // Add any remaining list
-            if (inList) {
-                content.appendChild(listElem);
+                content.appendChild(paragraph);
             }
-        }
+        });
     }
     
     messageDiv.appendChild(avatar);
     messageDiv.appendChild(content);
     messagesContainer.appendChild(messageDiv);
-    
-    // Add animation for smoother appearance
-    setTimeout(() => {
-        messageDiv.style.opacity = '1';
-    }, 10);
     
     // Scroll to the bottom
     messagesContainer.scrollTop = messagesContainer.scrollHeight;

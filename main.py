@@ -240,150 +240,243 @@ def format_response(response_type, data=None):
     else:
         return "I'm not sure how to respond to that. Try asking for recipes with specific ingredients."
 
-def process_user_input(user_input, recipes_df, canonical_ingredients, context=None):
+def process_user_input(user_input, recipes_df, canonical_ingredients, session_context):
     """
-    Process user input and generate a response.
+    Process user input and generate an appropriate response.
     
     Parameters:
     -----------
     user_input : str
-        User input text
+        The user's input text
     recipes_df : pandas.DataFrame
-        DataFrame containing recipes
+        DataFrame containing the recipe data
     canonical_ingredients : set
         Set of canonical ingredient names
-    context : dict, optional
-        Session context information
+    session_context : dict
+        Dictionary containing session context (e.g., last search results)
         
     Returns:
     --------
     tuple
-        (response, updated_context) where:
-        - response is the bot's response text
-        - updated_context is the updated session context
+        A tuple containing (response, updated_session_context)
     """
-    logger.info(f"Processing user input: '{user_input}'")
-    
-    # Initialize or use existing context
-    if context is None:
-        context = {
-            'last_search_results': None,
-            'current_page': 0,
-            'recipes_per_page': config.RECIPES_PER_PAGE
-        }
-    
-    # If user input is a number, treat it as a recipe selection
-    if user_input.strip().isdigit():
-        selection = int(user_input.strip()) - 1  # Convert to 0-based index
+    try:
+        # Default empty session context if None
+        if session_context is None:
+            session_context = {
+                'last_search_results': None,
+                'current_page': 0,
+                'recipes_per_page': 5
+            }
         
-        if context['last_search_results'] is not None and 0 <= selection < len(context['last_search_results']):
-            recipe_id = context['last_search_results'][selection]
+        # Parse the user input
+        logger.info(f"Processing user input: '{user_input}'")
+        parsed_input = parse_query(user_input, canonical_ingredients)
+        
+        # Check for None values in recipe_category (could happen if the key is missing)
+        if 'recipe_category' not in parsed_input:
+            parsed_input['recipe_category'] = None
+            logger.warning("recipe_category not found in parsed input, setting to None")
+        
+        # Log the parsed input for debugging
+        logger.info(f"Parsed query result: Intent={parsed_input['intent']}, " +
+                   f"Include={parsed_input['include_ingredients']}, " +
+                   f"Exclude={parsed_input['exclude_ingredients']}, " +
+                   f"Dietary={parsed_input['dietary_preferences']}, " +
+                   f"Category={parsed_input['recipe_category']}, " +
+                   f"Index={parsed_input['recipe_index']}, " +
+                   f"Name={parsed_input['recipe_name']}")
+        
+        # Handle different intents
+        intent = parsed_input['intent']
+        
+        if intent == 'quit':
+            return format_response('goodbye'), session_context
+        
+        elif intent == 'help':
+            return format_response('help'), session_context
+        
+        elif intent == 'get_recipe_details':
+            # Check if we have a specific recipe index
+            recipe_index = parsed_input['recipe_index']
+            recipe_name = parsed_input['recipe_name']
             
-            # Get recipe details
-            recipe_row = None
-            if 'id' in recipes_df.columns:
-                matches = recipes_df[recipes_df['id'] == recipe_id]
-                if not matches.empty:
-                    recipe_row = matches.iloc[0]
+            # If we have an index and last search results, use it
+            if recipe_index is not None and session_context.get('last_search_results') is not None:
+                if 0 <= recipe_index < len(session_context['last_search_results']):
+                    recipe_id = session_context['last_search_results'][recipe_index]
+                    
+                    # Use 'id' column for lookup if available
+                    if 'id' in recipes_df.columns:
+                        recipe_row = recipes_df[recipes_df['id'] == recipe_id]
+                        if not recipe_row.empty:
+                            recipe_details = get_detailed_recipe(recipe_row.iloc[0]['name'], recipes_df, config)
+                            return format_response('recipe_detail', {'recipe': recipe_details}), session_context
+                    else:
+                        # Fallback to index lookup
+                        if recipe_id in recipes_df.index:
+                            recipe_details = get_detailed_recipe(recipes_df.loc[recipe_id]['name'], recipes_df, config)
+                            return format_response('recipe_detail', {'recipe': recipe_details}), session_context
             
-            if recipe_row is not None:
-                recipe_details = get_detailed_recipe(recipe_row[config.RECIPE_NAME_COLUMN], recipes_df, config)
-                return format_recipe_details(recipe_details), context
+            # If we have a recipe name, try to find it
+            elif recipe_name:
+                recipe_details = get_detailed_recipe(recipe_name, recipes_df, config)
+                if recipe_details:
+                    return format_response('recipe_detail', {'recipe': recipe_details}), session_context
+                else:
+                    return f"I couldn't find a recipe called '{recipe_name}'. Please try again.", session_context
+            
+            # If we have neither index nor name, but a single-digit input, try it as an index
+            elif user_input.strip().isdigit():
+                recipe_index = int(user_input.strip()) - 1  # Convert to 0-based index
+                if session_context.get('last_search_results') is not None:
+                    if 0 <= recipe_index < len(session_context['last_search_results']):
+                        recipe_id = session_context['last_search_results'][recipe_index]
+                        
+                        # Use 'id' column for lookup if available
+                        if 'id' in recipes_df.columns:
+                            recipe_row = recipes_df[recipes_df['id'] == recipe_id]
+                            if not recipe_row.empty:
+                                recipe_details = get_detailed_recipe(recipe_row.iloc[0]['name'], recipes_df, config)
+                                return format_response('recipe_detail', {'recipe': recipe_details}), session_context
+                        else:
+                            # Fallback to index lookup
+                            if recipe_id in recipes_df.index:
+                                recipe_details = get_detailed_recipe(recipes_df.loc[recipe_id]['name'], recipes_df, config)
+                                return format_response('recipe_detail', {'recipe': recipe_details}), session_context
+            
+            return "Please specify which recipe you'd like to see, either by number or name.", session_context
+        
+        elif intent == 'find_recipe':
+            include_ingredients = parsed_input['include_ingredients']
+            exclude_ingredients = parsed_input['exclude_ingredients']
+            dietary_preferences = parsed_input['dietary_preferences']
+            recipe_category = parsed_input['recipe_category']
+            
+            # Log search parameters
+            logger.info(f"Searching for recipes with: include={include_ingredients}, " + 
+                       f"exclude={exclude_ingredients}, dietary={dietary_preferences}, category={recipe_category}")
+            
+            # If no ingredients, no dietary preferences, and no category, prompt the user
+            if not include_ingredients and not dietary_preferences and not recipe_category:
+                return format_response('no_input'), session_context
+            
+            # Find matching recipes
+            matching_df = find_matching_recipes(
+                include_ingredients=include_ingredients,
+                exclude_ingredients=exclude_ingredients,
+                dietary_preferences=dietary_preferences,
+                df_recipes=recipes_df,
+                config=config,
+                limit=10,
+                recipe_category=recipe_category
+            )
+            
+            # Log search results
+            logger.info(f"Recipe search returned {len(matching_df) if not matching_df.empty else 0} results")
+            
+            # Additional filtering when user specifically asks for multiple ingredients with "and"
+            if include_ingredients and len(include_ingredients) > 1 and 'and' in user_input.lower():
+                logger.info("User specified 'and' in query, applying stricter filtering")
+                
+                # Only keep recipes that have ALL of the requested ingredients
+                # We'll check the match_count to make sure it matches the number of requested ingredients
+                user_ing_count = len(set(include_ingredients))
+                
+                # Apply strict filtering (allow for 10% tolerance)
+                if not matching_df.empty and 'match_count' in matching_df.columns:
+                    strict_matches = matching_df[matching_df['match_count'] >= user_ing_count * 0.9]
+                    
+                    # If we have strict matches, use only those
+                    if not strict_matches.empty:
+                        logger.info(f"Found {len(strict_matches)} recipes with ALL requested ingredients")
+                        matching_df = strict_matches
+            
+            # If no results, try fallback strategies
+            if matching_df.empty:
+                logger.info("No matching recipes found, trying fallback strategies")
+                
+                # First fallback: If we have a special category, try without ingredient filtering
+                if recipe_category and include_ingredients:
+                    logger.info(f"Fallback: Trying with just category '{recipe_category}' without ingredient filtering")
+                    fallback_df = find_matching_recipes(
+                        include_ingredients=[],
+                        exclude_ingredients=exclude_ingredients,  # Keep exclusions
+                        dietary_preferences=dietary_preferences,  # Keep dietary preferences
+                        df_recipes=recipes_df,
+                        config=config,
+                        limit=10,
+                        recipe_category=recipe_category
+                    )
+                    
+                    if not fallback_df.empty:
+                        logger.info(f"Fallback successful: Found {len(fallback_df)} recipes with category only")
+                        matching_df = fallback_df
+                
+                # Second fallback: For "without X" queries, try with just exclusions
+                elif exclude_ingredients and not include_ingredients:
+                    logger.info("Fallback: Trying with just ingredient exclusions")
+                    # Try loosening the exclusion matching by using only the first excluded ingredient
+                    if len(exclude_ingredients) > 1:
+                        primary_exclusion = [exclude_ingredients[0]]
+                        logger.info(f"Using primary exclusion: {primary_exclusion}")
+                        
+                        fallback_df = find_matching_recipes(
+                            include_ingredients=[],
+                            exclude_ingredients=primary_exclusion,
+                            dietary_preferences=dietary_preferences,
+                            df_recipes=recipes_df,
+                            config=config,
+                            limit=10,
+                            recipe_category=None  # Drop category to find more recipes
+                        )
+                        
+                        if not fallback_df.empty:
+                            logger.info(f"Fallback successful: Found {len(fallback_df)} recipes with primary exclusion")
+                            matching_df = fallback_df
+                
+                # Third fallback: If we have ingredients but no category, drop the least important ingredient
+                elif include_ingredients and len(include_ingredients) > 1:
+                    logger.info("Fallback: Trying with fewer ingredients")
+                    # Remove the last ingredient (assumed to be least important)
+                    reduced_ingredients = include_ingredients[:-1]
+                    logger.info(f"Using reduced ingredients: {reduced_ingredients}")
+                    
+                    fallback_df = find_matching_recipes(
+                        include_ingredients=reduced_ingredients,
+                        exclude_ingredients=exclude_ingredients,
+                        dietary_preferences=dietary_preferences,
+                        df_recipes=recipes_df,
+                        config=config,
+                        limit=10,
+                        recipe_category=recipe_category
+                    )
+                    
+                    if not fallback_df.empty:
+                        logger.info(f"Fallback successful: Found {len(fallback_df)} recipes with reduced ingredients")
+                        matching_df = fallback_df
+            
+            # Store recipe IDs (prefer 'id' column if available)
+            if not matching_df.empty and 'id' in matching_df.columns:
+                recipe_ids = list(matching_df['id'])
             else:
-                return "I couldn't find that recipe. Please try another selection.", context
-        else:
-            return "Please select a valid recipe number from the search results.", context
-    
-    # Parse the query
-    parse_result = parse_query(user_input, canonical_ingredients)
-    logger.info(f"Parsed query result: Intent={parse_result['intent']}, Include={parse_result['include_ingredients']}, " +
-               f"Exclude={parse_result['exclude_ingredients']}, Dietary={parse_result['dietary_preferences']}, " +
-               f"Category={parse_result['recipe_category']}, Index={parse_result['recipe_index']}, Name={parse_result['recipe_name']}" +
-               f"Methods={parse_result['cooking_methods']}, Time={parse_result['cooking_time']}")
-    
-    # Handle different intents
-    if parse_result['intent'] == 'quit':
-        return "Goodbye! Feel free to come back when you're hungry again.", context
-    
-    if parse_result['intent'] == 'help':
-        return get_help_text(), context
-    
-    if parse_result['intent'] == 'get_recipe_details':
-        # Handle recipe selection by index
-        if parse_result['recipe_index'] is not None:
-            selection = parse_result['recipe_index']
+                recipe_ids = list(matching_df.index) if not matching_df.empty else []
+            session_context['last_search_results'] = recipe_ids
             
-            if context['last_search_results'] is not None and 0 <= selection < len(context['last_search_results']):
-                recipe_id = context['last_search_results'][selection]
-                
-                # Get recipe details
-                recipe_row = None
-                if 'id' in recipes_df.columns:
-                    matches = recipes_df[recipes_df['id'] == recipe_id]
-                    if not matches.empty:
-                        recipe_row = matches.iloc[0]
-                
-                if recipe_row is not None:
-                    recipe_details = get_detailed_recipe(recipe_row[config.RECIPE_NAME_COLUMN], recipes_df, config)
-                    return format_recipe_details(recipe_details), context
-            
-            return "I couldn't find that recipe. Please try another selection.", context
+            if not matching_df.empty:
+                # Add logging to check the type before conversion
+                logger.info(f"Type of matching_df before to_dict: {type(matching_df)}")
+                recipes_list = matching_df.to_dict(orient='records')
+                return format_response('recipe_list', {'recipes': recipes_list}), session_context
+            else:
+                return format_response('not_found'), session_context
         
-        # Handle recipe selection by name
-        if parse_result['recipe_name'] is not None:
-            recipe_name = parse_result['recipe_name']
-            matches = recipes_df[recipes_df[config.RECIPE_NAME_COLUMN].str.lower().str.contains(recipe_name.lower())]
-            
-            if not matches.empty:
-                recipe_row = matches.iloc[0]
-                recipe_details = get_detailed_recipe(recipe_row[config.RECIPE_NAME_COLUMN], recipes_df, config)
-                return format_recipe_details(recipe_details), context
-            
-            return f"I couldn't find a recipe named '{recipe_name}'. Please try another search.", context
+        else:
+            return format_response('error'), session_context
     
-    # For recipe search intent (default)
-    include_ingredients = parse_result['include_ingredients']
-    exclude_ingredients = parse_result['exclude_ingredients']
-    dietary_preferences = parse_result['dietary_preferences']
-    recipe_category = parse_result['recipe_category']
-    cooking_methods = parse_result['cooking_methods']
-    cooking_time = parse_result['cooking_time']
-    
-    logger.info(f"Searching for recipes with: include={include_ingredients}, exclude={exclude_ingredients}, " +
-               f"dietary={dietary_preferences}, category={recipe_category}, " +
-               f"methods={cooking_methods}, time={cooking_time}")
-    
-    # Find matching recipes
-    matching_df = find_matching_recipes(
-        include_ingredients=include_ingredients,
-        exclude_ingredients=exclude_ingredients,
-        dietary_preferences=dietary_preferences,
-        df_recipes=recipes_df,
-        config=config,
-        limit=config.RESULTS_LIMIT,
-        recipe_category=recipe_category,
-        cooking_methods=cooking_methods,
-        cooking_time=cooking_time
-    )
-    
-    # Store search results in context
-    if 'id' in matching_df.columns:
-        context['last_search_results'] = matching_df['id'].tolist()
-    else:
-        context['last_search_results'] = matching_df.index.tolist()
-    
-    context['current_page'] = 0  # Reset to first page for new search
-    
-    # Generate response
-    if len(matching_df) > 0:
-        logger.info(f"Recipe search returned {len(matching_df)} results")
-        response = format_recipe_list(matching_df, context['current_page'], context['recipes_per_page'])
-    else:
-        logger.info("No matching recipes found")
-        response = generate_no_recipes_response(include_ingredients, exclude_ingredients, dietary_preferences)
-    
-    logger.info(f"Type of matching_df before to_dict: {type(matching_df)}")
-    return response, context
+    except Exception as e:
+        logger.error(f"Error processing user input: {e}", exc_info=True)
+        return format_response('error'), session_context
 
 def chat_loop(recipes_df, canonical_ingredients):
     """

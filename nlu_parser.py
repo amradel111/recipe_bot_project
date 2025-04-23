@@ -37,44 +37,7 @@ DIETARY_KEYWORDS = {
 }
 
 # Negation terms to detect ingredients to exclude
-NEGATION_TERMS = ['no', 'not', 'without', 'except', 'but no', 'dont', "don't", 'excluding', 'none', 'no more', 
-                  'avoid', 'skip', 'omit', 'leave out', 'free from', 'exclude', 'rather not', 'allergic to']
-
-# New cooking methods dataset
-COOKING_METHODS = [
-    'bake', 'roast', 'grill', 'broil', 'fry', 'saute', 'sauté', 'boil', 'simmer', 'steam',
-    'poach', 'braise', 'stew', 'blanch', 'deep-fry', 'deep fry', 'air fry', 'air-fry', 'microwave',
-    'toast', 'slow cook', 'pressure cook', 'instant pot', 'sous vide', 'smoke', 'barbecue', 'bbq',
-    'stir-fry', 'stir fry', 'pan-fry', 'pan fry', 'sear', 'caramelize', 'ferment', 'pickle',
-    'cure', 'marinate', 'dehydrate', 'freeze'
-]
-
-# Common recipe categories and dish types
-RECIPE_CATEGORIES = {
-    'breakfast': ['breakfast', 'brunch', 'morning meal'],
-    'lunch': ['lunch', 'midday meal', 'noon'],
-    'dinner': ['dinner', 'supper', 'evening meal'],
-    'appetizer': ['appetizer', 'starter', 'hors d\'oeuvre', 'finger food', 'snack', 'dip'],
-    'main_course': ['main course', 'main dish', 'entree', 'entrée'],
-    'side_dish': ['side dish', 'side', 'accompaniment'],
-    'salad': ['salad'],
-    'soup': ['soup', 'stew', 'bisque', 'chowder', 'broth'],
-    'sandwich': ['sandwich', 'wrap', 'burger', 'sub', 'panini'],
-    'dessert': ['dessert', 'sweet', 'cake', 'pie', 'cookie', 'ice cream', 'pudding'],
-    'drink': ['beverage', 'drink', 'cocktail', 'smoothie', 'shake', 'juice'],
-    'sauce': ['sauce', 'gravy', 'dressing', 'marinade'],
-    'bread': ['bread', 'roll', 'bun', 'biscuit', 'muffin', 'loaf']
-}
-
-# Cooking time indicators
-TIME_INDICATORS = {
-    'quick': ['quick', 'fast', 'rapid', 'speedy', 'quick meal', '15 minute', '15-minute', '15minutes', 
-              '15 min', '20 minute', '20-minute', '20 min', '30 minute', '30-minute', '30 min',
-              'under 30', 'easy', 'simple', 'effortless', 'no time', 'busy'],
-    'medium': ['medium time', '45 minute', '45-minute', '45 min', '1 hour', 'hour long'],
-    'slow': ['slow', 'slow cooked', 'slow-cooked', 'time consuming', 'long', 'lengthy', 
-             'overnight', 'all day', 'several hours', 'slow cooker']
-}
+NEGATION_TERMS = ['no', 'not', 'without', 'except', 'but no', 'dont', "don't", 'excluding', 'none', 'no more']
 
 # Download required NLTK resources (only needs to be done once)
 try:
@@ -141,7 +104,7 @@ DIETARY_PREFERENCE_TERMS = {
         'vegetarian', 'veggie', 'no meat', 'meat free', 'meatless'
     ],
     'vegan': [
-        'vegan', 'plant-based', 'plant based', 'no animal products', 'dairy-free and vegetarian'
+        'vegan', 'plant-based', 'no animal products', 'dairy-free and vegetarian'
     ],
     'gluten-free': [
         'gluten-free', 'gluten free', 'no gluten', 'without gluten', 'gf'
@@ -212,282 +175,25 @@ def find_closest_ingredient(word, canonical_ingredients, threshold=0.8):
     
     # Common ingredients with their canonical forms 
     common_ingredient_map = {
-        # Meats
         'chicken': 'chicken',
         'beef': 'beef',
         'pork': 'pork',
-        'turkey': 'turkey',
-        'lamb': 'lamb',
-        'duck': 'duck',
-        'venison': 'venison',
-        'sausage': 'sausage',
-        'bacon': 'bacon',
-        'ground beef': 'ground beef',
-        'minced beef': 'ground beef',
-        'hamburger': 'ground beef',
-        'ground meat': 'ground meat',
-        'mince': 'ground meat',
-        'ground turkey': 'ground turkey',
-        'steak': 'beef',
-        'ham': 'ham',
-        'chicken breast': 'chicken breast',
-        'chicken thigh': 'chicken thigh',
-        'chicken leg': 'chicken leg',
-        'chicken wing': 'chicken wing',
-        
-        # Grains & Pasta
         'rice': 'rice',
         'pasta': 'pasta',
         'noodle': 'noodles',
         'noodles': 'noodles',
-        'spaghetti': 'spaghetti',
-        'macaroni': 'macaroni',
-        'penne': 'penne',
-        'fettuccine': 'fettuccine',
-        'linguine': 'linguine',
-        'ramen': 'ramen',
-        'udon': 'udon',
-        'couscous': 'couscous',
-        'risotto': 'rice',
-        'quinoa': 'quinoa',
-        'oats': 'oats',
-        'oatmeal': 'oats',
-        'barley': 'barley',
-        'bulgur': 'bulgur',
-        'bread': 'bread',
-        'breadcrumbs': 'breadcrumbs',
-        'flour': 'flour',
-        
-        # Vegetables
         'potato': 'potatoes',
         'potatoes': 'potatoes',
-        'sweet potato': 'sweet potato',
-        'yam': 'yam',
         'tomato': 'tomatoes',
         'tomatoes': 'tomatoes',
         'onion': 'onions',
         'onions': 'onions',
         'carrot': 'carrots',
         'carrots': 'carrots',
-        'bell pepper': 'bell pepper',
-        'pepper': 'bell pepper',
-        'chili pepper': 'chili pepper',
-        'chili': 'chili pepper',
-        'jalapeno': 'jalapeno',
-        'broccoli': 'broccoli',
-        'cauliflower': 'cauliflower',
-        'spinach': 'spinach',
-        'kale': 'kale',
-        'lettuce': 'lettuce',
-        'cabbage': 'cabbage',
-        'zucchini': 'zucchini',
-        'courgette': 'zucchini',
-        'cucumber': 'cucumber',
-        'eggplant': 'eggplant',
-        'aubergine': 'eggplant',
-        'mushroom': 'mushrooms',
-        'mushrooms': 'mushrooms',
-        'garlic': 'garlic',
-        'ginger': 'ginger',
-        'corn': 'corn',
-        'maize': 'corn',
-        'peas': 'peas',
-        'green beans': 'green beans',
-        'string beans': 'green beans',
-        'asparagus': 'asparagus',
-        'brussels sprouts': 'brussels sprouts',
-        'artichoke': 'artichoke',
-        'leek': 'leeks',
-        'leeks': 'leeks',
-        'celery': 'celery',
-        'radish': 'radish',
-        'beet': 'beets',
-        'beets': 'beets',
-        'beetroot': 'beets',
-        
-        # Fruits
-        'apple': 'apple',
-        'banana': 'banana',
-        'orange': 'orange',
-        'lemon': 'lemon',
-        'lime': 'lime',
-        'strawberry': 'strawberries',
-        'strawberries': 'strawberries',
-        'blueberry': 'blueberries',
-        'blueberries': 'blueberries',
-        'raspberry': 'raspberries',
-        'raspberries': 'raspberries',
-        'blackberry': 'blackberries',
-        'blackberries': 'blackberries',
-        'pineapple': 'pineapple',
-        'mango': 'mango',
-        'peach': 'peach',
-        'pear': 'pear',
-        'grape': 'grapes',
-        'grapes': 'grapes',
-        'cherry': 'cherries',
-        'cherries': 'cherries',
-        'avocado': 'avocado',
-        'coconut': 'coconut',
-        'kiwi': 'kiwi',
-        'melon': 'melon',
-        'watermelon': 'watermelon',
-        
-        # Legumes
         'bean': 'beans',
         'beans': 'beans',
-        'lentil': 'lentils',
-        'lentils': 'lentils',
-        'chickpea': 'chickpeas',
-        'chickpeas': 'chickpeas',
-        'garbanzo': 'chickpeas',
-        'tofu': 'tofu',
-        'soy': 'soy',
-        'edamame': 'edamame',
-        'peanut': 'peanuts',
-        'peanuts': 'peanuts',
-        
-        # Dairy
-        'milk': 'milk',
-        'cheese': 'cheese',
-        'cheddar': 'cheddar cheese',
-        'mozzarella': 'mozzarella',
-        'parmesan': 'parmesan',
-        'cream': 'cream',
-        'sour cream': 'sour cream',
-        'yogurt': 'yogurt',
-        'yoghurt': 'yogurt',
-        'butter': 'butter',
-        'margarine': 'margarine',
-        'ghee': 'ghee',
-        
-        # Proteins
         'egg': 'eggs',
-        'eggs': 'eggs',
-        
-        # Nuts and Seeds
-        'almond': 'almonds',
-        'almonds': 'almonds',
-        'walnut': 'walnuts',
-        'walnuts': 'walnuts',
-        'pecan': 'pecans',
-        'pecans': 'pecans',
-        'cashew': 'cashews',
-        'cashews': 'cashews',
-        'pistachio': 'pistachios',
-        'pistachios': 'pistachios',
-        'sunflower seed': 'sunflower seeds',
-        'sunflower seeds': 'sunflower seeds',
-        'pumpkin seed': 'pumpkin seeds',
-        'pumpkin seeds': 'pumpkin seeds',
-        'chia seed': 'chia seeds',
-        'chia seeds': 'chia seeds',
-        'flax seed': 'flax seeds',
-        'flax seeds': 'flax seeds',
-        'sesame seed': 'sesame seeds',
-        'sesame seeds': 'sesame seeds',
-        
-        # Seafood
-        'fish': 'fish',
-        'salmon': 'salmon',
-        'tuna': 'tuna',
-        'cod': 'cod',
-        'tilapia': 'tilapia',
-        'shrimp': 'shrimp',
-        'prawn': 'shrimp',
-        'prawns': 'shrimp',
-        'lobster': 'lobster',
-        'crab': 'crab',
-        'clam': 'clams',
-        'clams': 'clams',
-        'mussel': 'mussels',
-        'mussels': 'mussels',
-        'oyster': 'oysters',
-        'oysters': 'oysters',
-        'scallop': 'scallops',
-        'scallops': 'scallops',
-        
-        # Sweeteners
-        'sugar': 'sugar',
-        'brown sugar': 'brown sugar',
-        'honey': 'honey',
-        'maple syrup': 'maple syrup',
-        'agave': 'agave',
-        'stevia': 'stevia',
-        'molasses': 'molasses',
-        
-        # Oils and Fats
-        'oil': 'oil',
-        'olive oil': 'olive oil',
-        'vegetable oil': 'vegetable oil',
-        'canola oil': 'canola oil',
-        'coconut oil': 'coconut oil',
-        'sesame oil': 'sesame oil',
-        
-        # Condiments
-        'ketchup': 'ketchup',
-        'mustard': 'mustard',
-        'mayonnaise': 'mayonnaise',
-        'mayo': 'mayonnaise',
-        'soy sauce': 'soy sauce',
-        'vinegar': 'vinegar',
-        'hot sauce': 'hot sauce',
-        'tabasco': 'hot sauce',
-        'salsa': 'salsa',
-        'hummus': 'hummus',
-        
-        # Spices and Herbs
-        'salt': 'salt',
-        'pepper': 'pepper',
-        'black pepper': 'black pepper',
-        'oregano': 'oregano',
-        'basil': 'basil',
-        'thyme': 'thyme',
-        'rosemary': 'rosemary',
-        'sage': 'sage',
-        'cinnamon': 'cinnamon',
-        'nutmeg': 'nutmeg',
-        'cumin': 'cumin',
-        'paprika': 'paprika',
-        'chili powder': 'chili powder',
-        'curry powder': 'curry powder',
-        'turmeric': 'turmeric',
-        'garam masala': 'garam masala',
-        'cardamom': 'cardamom',
-        'coriander': 'coriander',
-        'cilantro': 'cilantro',
-        'parsley': 'parsley',
-        'mint': 'mint',
-        'bay leaf': 'bay leaves',
-        'bay leaves': 'bay leaves',
-        'vanilla': 'vanilla',
-        'vanilla extract': 'vanilla extract',
-        'dill': 'dill',
-        'fennel': 'fennel',
-        'cayenne': 'cayenne pepper',
-        'cayenne pepper': 'cayenne pepper',
-        
-        # Baking
-        'baking powder': 'baking powder',
-        'baking soda': 'baking soda',
-        'yeast': 'yeast',
-        'chocolate': 'chocolate',
-        'chocolate chip': 'chocolate chips',
-        'chocolate chips': 'chocolate chips',
-        'cocoa': 'cocoa powder',
-        'cocoa powder': 'cocoa powder',
-        
-        # Alcoholic Ingredients
-        'wine': 'wine',
-        'red wine': 'red wine',
-        'white wine': 'white wine',
-        'beer': 'beer',
-        'rum': 'rum',
-        'vodka': 'vodka',
-        'whiskey': 'whiskey',
-        'bourbon': 'bourbon',
-        'brandy': 'brandy',
-        'sherry': 'sherry'
+        'eggs': 'eggs'
     }
     
     # Direct match for common ingredients
@@ -1477,51 +1183,6 @@ def extract_common_ingredients(query):
     
     return include_ingredients, exclude_ingredients
 
-def extract_cooking_method(query):
-    """
-    Extract cooking method preferences from the query.
-    
-    Parameters:
-    -----------
-    query : str
-        User query
-        
-    Returns:
-    --------
-    list
-        List of cooking methods found in the query
-    """
-    query_lower = query.lower()
-    methods = []
-    
-    for method in COOKING_METHODS:
-        if method in query_lower:
-            methods.append(method)
-    
-    return methods
-
-def extract_cooking_time(query):
-    """
-    Extract cooking time preferences from the query.
-    
-    Parameters:
-    -----------
-    query : str
-        User query
-        
-    Returns:
-    --------
-    str or None
-        Type of cooking time (quick, medium, slow) or None if not specified
-    """
-    query_lower = query.lower()
-    
-    for time_type, indicators in TIME_INDICATORS.items():
-        if any(indicator in query_lower for indicator in indicators):
-            return time_type
-    
-    return None
-
 def parse_query(query, canonical_ingredients=None):
     """
     Parse a user query to extract intent and entities.
@@ -1544,8 +1205,6 @@ def parse_query(query, canonical_ingredients=None):
         - recipe_index: Recipe index if specified, None otherwise
         - recipe_name: Recipe name if specified, None otherwise
         - recipe_category: Category of recipes to search for
-        - cooking_methods: List of cooking methods mentioned
-        - cooking_time: Cooking time preference (quick, medium, slow)
     """
     try:
         # Basic validation
@@ -1558,9 +1217,7 @@ def parse_query(query, canonical_ingredients=None):
                 'dietary_preferences': [],
                 'recipe_index': None,
                 'recipe_name': None,
-                'recipe_category': None,
-                'cooking_methods': [],
-                'cooking_time': None
+                'recipe_category': None
             }
         
         # Identify intent
@@ -1581,9 +1238,7 @@ def parse_query(query, canonical_ingredients=None):
                 'dietary_preferences': [],
                 'recipe_index': recipe_index,
                 'recipe_name': None,
-                'recipe_category': None,
-                'cooking_methods': [],
-                'cooking_time': None
+                'recipe_category': None
             }
         
         # Extract dietary preferences
@@ -1612,17 +1267,10 @@ def parse_query(query, canonical_ingredients=None):
         if 'dessert' in include_ingredients and any(term in query.lower() for term in ['find dessert', 'dessert recipes', 'sweet recipes']):
             include_ingredients.remove('dessert')
         
-        # Extract cooking methods
-        cooking_methods = extract_cooking_method(query)
-        
-        # Extract cooking time preference
-        cooking_time = extract_cooking_time(query)
-        
         # Log the parse results for debugging
         logger.debug(f"Parsed query: Intent={intent}, Include={include_ingredients}, "
                      f"Exclude={exclude_ingredients}, Preferences={dietary_preferences}, "
-                     f"Category={recipe_category}, Index={recipe_index}, Name={recipe_name}, "
-                     f"Methods={cooking_methods}, Time={cooking_time}")
+                     f"Category={recipe_category}, Index={recipe_index}, Name={recipe_name}")
         
         return {
             'intent': intent,
@@ -1631,9 +1279,7 @@ def parse_query(query, canonical_ingredients=None):
             'dietary_preferences': dietary_preferences,
             'recipe_index': recipe_index,
             'recipe_name': recipe_name,
-            'recipe_category': recipe_category,
-            'cooking_methods': cooking_methods,
-            'cooking_time': cooking_time
+            'recipe_category': recipe_category
         }
     except Exception as e:
         logger.error(f"Error parsing query: {e}")
@@ -1644,9 +1290,7 @@ def parse_query(query, canonical_ingredients=None):
             'dietary_preferences': [],
             'recipe_index': None,
             'recipe_name': None,
-            'recipe_category': None,
-            'cooking_methods': [],
-            'cooking_time': None
+            'recipe_category': None
         }
 
 if __name__ == "__main__":
@@ -1677,6 +1321,4 @@ if __name__ == "__main__":
         print(f"Dietary preferences: {result['dietary_preferences']}")
         print(f"Recipe index: {result['recipe_index']}")
         print(f"Recipe name: {result['recipe_name']}")
-        print(f"Recipe category: {result['recipe_category']}")
-        print(f"Cooking methods: {result['cooking_methods']}")
-        print(f"Cooking time: {result['cooking_time']}") 
+        print(f"Recipe category: {result['recipe_category']}") 

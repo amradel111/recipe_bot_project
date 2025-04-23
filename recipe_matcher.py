@@ -45,35 +45,6 @@ DIETARY_INDICATORS = {
     ]
 }
 
-# Cooking method indicators - keywords/phrases that suggest a certain cooking method is used
-COOKING_METHOD_INDICATORS = {
-    'bake': ['bake', 'baked', 'baking', 'oven'],
-    'roast': ['roast', 'roasted', 'roasting'],
-    'grill': ['grill', 'grilled', 'grilling', 'barbecue', 'bbq', 'barbecued'],
-    'broil': ['broil', 'broiled', 'broiling'],
-    'fry': ['fry', 'fried', 'frying', 'pan-fry', 'pan fry'],
-    'saute': ['saute', 'sauté', 'sautéed', 'sauteed'],
-    'boil': ['boil', 'boiled', 'boiling'],
-    'simmer': ['simmer', 'simmered', 'simmering'],
-    'steam': ['steam', 'steamed', 'steaming'],
-    'poach': ['poach', 'poached', 'poaching'],
-    'braise': ['braise', 'braised', 'braising'],
-    'stew': ['stew', 'stewed', 'stewing'],
-    'stir-fry': ['stir-fry', 'stir fry', 'stir fried', 'stir-fried'],
-    'slow cook': ['slow cook', 'slow cooker', 'crockpot', 'crock pot'],
-    'pressure cook': ['pressure cook', 'pressure cooker', 'instant pot'],
-    'microwave': ['microwave', 'microwaved'],
-}
-
-# Cooking time indicators - keywords/phrases that suggest recipe preparation time
-COOKING_TIME_INDICATORS = {
-    'quick': ['quick', 'easy', 'simple', 'fast', 'quick and easy', '15 minute', '15-minute', '20 minute', 
-              '30 minute', '30-minute', 'less than 30', 'under 30', 'no time', 'weeknight'],
-    'medium': ['45 minute', '45-minute', '1 hour', 'hour cooking', 'hour preparation', 'hour prep'],
-    'slow': ['slow', 'slow-cooked', 'slow cooked', 'several hours', 'long cooking', 'overnight', 
-             'marinate overnight', 'all day', 'slow cooker', 'hours to prepare']
-}
-
 def calculate_match_score(user_ingredients, recipe_ingredients, exclude_ingredients=None):
     """
     Calculate a match score between user ingredients and recipe ingredients.
@@ -323,68 +294,9 @@ def check_dietary_preferences(recipe_ingredients, dietary_preferences):
     # If we get here, all preferences were satisfied
     return True
 
-def detect_cooking_method(recipe_name, recipe_instructions):
+def find_matching_recipes(include_ingredients, exclude_ingredients, dietary_preferences, df_recipes, config, limit=5, recipe_category=None):
     """
-    Detect cooking methods used in a recipe based on name and instructions.
-    
-    Parameters:
-    -----------
-    recipe_name : str
-        Name of the recipe
-    recipe_instructions : str
-        Cooking instructions for the recipe
-        
-    Returns:
-    --------
-    list
-        List of detected cooking methods
-    """
-    detected_methods = []
-    
-    # Create a combined text to search in
-    search_text = f"{recipe_name} {recipe_instructions}".lower()
-    
-    # Check for each cooking method
-    for method, indicators in COOKING_METHOD_INDICATORS.items():
-        for indicator in indicators:
-            if indicator in search_text:
-                detected_methods.append(method)
-                break  # Once found one indicator for this method, move to next method
-    
-    return detected_methods
-
-def detect_cooking_time(recipe_name, recipe_instructions):
-    """
-    Detect cooking time category for a recipe based on name and instructions.
-    
-    Parameters:
-    -----------
-    recipe_name : str
-        Name of the recipe
-    recipe_instructions : str
-        Cooking instructions for the recipe
-        
-    Returns:
-    --------
-    str or None
-        Detected cooking time category ('quick', 'medium', 'slow') or None if not detected
-    """
-    # Create a combined text to search in
-    search_text = f"{recipe_name} {recipe_instructions}".lower()
-    
-    # Check for time indicators in the following priority order
-    for time_category in ['quick', 'slow', 'medium']:  # Quick takes precedence, then slow, then medium
-        for indicator in COOKING_TIME_INDICATORS[time_category]:
-            if indicator in search_text:
-                return time_category
-    
-    # Default to None if no time indicators found
-    return None
-
-def find_matching_recipes(include_ingredients, exclude_ingredients, dietary_preferences, df_recipes, config, 
-                         limit=10, recipe_category=None, cooking_methods=None, cooking_time=None):
-    """
-    Find recipes that match the given ingredients and preferences.
+    Find recipes that match the specified ingredients and dietary preferences.
     
     Parameters:
     -----------
@@ -395,17 +307,13 @@ def find_matching_recipes(include_ingredients, exclude_ingredients, dietary_pref
     dietary_preferences : list
         List of dietary preferences
     df_recipes : pandas.DataFrame
-        DataFrame containing recipes
+        DataFrame containing recipe data
     config : module
         Configuration module
     limit : int, optional
         Maximum number of recipes to return
     recipe_category : str, optional
         Category of recipes to search for
-    cooking_methods : list, optional
-        List of cooking methods to filter by
-    cooking_time : str, optional
-        Cooking time preference to filter by ('quick', 'medium', 'slow')
         
     Returns:
     --------
@@ -707,59 +615,6 @@ def find_matching_recipes(include_ingredients, exclude_ingredients, dietary_pref
             # We can return to the original approach in this case
             df_with_scores = df_recipes.copy()
             df_with_scores = df_with_scores.sort_values('match_score', ascending=False)
-    
-    # Filter by cooking method if specified
-    if cooking_methods and len(cooking_methods) > 0:
-        logger.info(f"Filtering by cooking methods: {cooking_methods}")
-        
-        # Create a temporary column with detected cooking methods
-        df_with_scores['detected_methods'] = df_with_scores.apply(
-            lambda row: detect_cooking_method(
-                row[name_col], 
-                row[config.INSTRUCTIONS_COLUMN] if pd.notna(row[config.INSTRUCTIONS_COLUMN]) else ""
-            ), 
-            axis=1
-        )
-        
-        # Filter recipes that use at least one of the specified cooking methods
-        method_matches = []
-        for _, row in df_with_scores.iterrows():
-            if any(method in row['detected_methods'] for method in cooking_methods):
-                method_matches.append(True)
-            else:
-                method_matches.append(False)
-        
-        df_with_scores = df_with_scores[method_matches]
-        logger.info(f"After cooking method filtering, found {len(df_with_scores)} recipes")
-        
-        # Clean up temporary column
-        df_with_scores = df_with_scores.drop(columns=['detected_methods'])
-    
-    # Filter by cooking time if specified
-    if cooking_time:
-        logger.info(f"Filtering by cooking time: {cooking_time}")
-        
-        # Create a temporary column with detected cooking time
-        df_with_scores['detected_time'] = df_with_scores.apply(
-            lambda row: detect_cooking_time(
-                row[name_col], 
-                row[config.INSTRUCTIONS_COLUMN] if pd.notna(row[config.INSTRUCTIONS_COLUMN]) else ""
-            ), 
-            axis=1
-        )
-        
-        # For 'quick' time, keep recipes with 'quick' time or no detected time (might still be quick)
-        if cooking_time == 'quick':
-            df_with_scores = df_with_scores[(df_with_scores['detected_time'] == 'quick') | 
-                                    (df_with_scores['detected_time'].isna())]
-        else:
-            # For other time preferences, filter exact matches
-            df_with_scores = df_with_scores[df_with_scores['detected_time'] == cooking_time]
-        
-        logger.info(f"After cooking time filtering, found {len(df_with_scores)} recipes")
-        
-        # Clean up temporary column
-        df_with_scores = df_with_scores.drop(columns=['detected_time'])
     
     # Sort by match score in descending order
     df_with_scores = df_with_scores.sort_values('match_score', ascending=False)
